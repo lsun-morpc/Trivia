@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trivia Game</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f3f3f3;
+            margin: 0;
+        }
+
+        #game-container {
+            width: 400px;
+            text-align: center;
+        }
+
+        .btn-container {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .btn {
+            background-color: grey;
+            color: white;
+            border: none;
+            padding: 10px;
+            margin: 5px 0;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            background-color: black;
+        }
+
+        .hide {
+            display: none;
+        }
+
+        #controls {
+            margin-top: 20px;
+        }
+
+        .start-btn, .next-btn, .back-btn, .redo-btn, .finish-btn, .start-over-btn {
+            font-size: 20px;
+        }
+
+        .correct {
+            background-color: #4CAF50;
+        }
+
+        .wrong {
+            background-color: #f44336;
+        }
+
+        /* Toggle switch styles */
+        .switch {
+            position: fixed;
+            top: 100px;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+            background-color: #ccc;
+            border-radius: 34px;
+            transition: background-color 0.3s;
+            z-index: 1000; /* Ensure switch is above other elements */
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: white;
+            transition: 0.4s;
+            border-radius: 34px;
+            z-index: 1; /* Ensure slider is above background */
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: #ccc;
+            border-radius: 50%;
+            transition: 0.4s;
+            z-index: 2; /* Ensure slider button is above background */
+        }
+
+        input:checked + .slider {
+            background-color: #2196F3;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+            background-color: white;
+        }
+
+        #result-container {
+            display: none;
+            margin-top: 20px;
+        }
+
+        #result-message {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        #accuracy-rate {
+            font-size: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <h1 id="game-title">Trivia Game</h1>
+        <div id="question-container" class="hide">
+            <div id="question">Question text</div>
+            <div id="answer-buttons" class="btn-container">
+                <button class="btn">Answer 1</button>
+                <button class="btn">Answer 2</button>
+                <button class="btn">Answer 3</button>
+                <button class="btn">Answer 4</button>
+            </div>
+        </div>
+        <div id="controls">
+            <button id="start-btn" class="start-btn btn">Start</button>
+            <button id="next-btn" class="next-btn btn hide">Next</button>
+            <button id="back-btn" class="back-btn btn hide">Back</button>
+            <button id="redo-btn" class="redo-btn btn hide">Do it again</button>
+            <button id="finish-btn" class="finish-btn btn hide">Finish</button>
+            <button id="start-over-btn" class="start-over-btn btn hide">Start Over</button>
+        </div>
+
+            
+        <div id="result-container">
+            <div id="result-message">Finished!</div>
+            <div id="accuracy-rate"></div>
+        </div>
+    </div>
+
+    <!-- Language toggle switch -->
+    <label class="switch">
+        <input type="checkbox" id="language-toggle">
+        <span class="slider"></span>
+    </label>
+
+    <script>
+        const startButton = document.getElementById('start-btn');
+        const nextButton = document.getElementById('next-btn');
+        const backButton = document.getElementById('back-btn');
+        const redoButton = document.getElementById('redo-btn');
+        const finishButton = document.getElementById('finish-btn');
+        const startOverButton = document.getElementById('start-over-btn');
+        const questionContainer = document.getElementById('question-container');
+        const questionElement = document.getElementById('question');
+        const answerButtonsElement = document.getElementById('answer-buttons');
+        const gameTitleElement = document.getElementById('game-title');
+        const languageToggle = document.getElementById('language-toggle');
+        const resultContainer = document.getElementById('result-container');
+        const resultMessage = document.getElementById('result-message');
+        const accuracyRate = document.getElementById('accuracy-rate');
+
+        let shuffledQuestions, currentQuestionIndex, isChineseMode = false;
+        let correctAnswers = 0, totalQuestions = 0;
+        let isRedoMode = false;
+
+        const questions = [
+            {
+                question: 'What is the capital of the United States?',
+                answers: [
+                    { text: 'New York', correct: false },
+                    { text: 'Washington', correct: true },
+                    { text: 'Los Angeles', correct: false },
+                    { text: 'Chicago', correct: false }
+                ],
+                translation: '美国的首都是哪里？',
+                translatedAnswers: [
+                    { text: '纽约', correct: false },
+                    { text: '华盛顿', correct: true },
+                    { text: '洛杉矶', correct: false },
+                    { text: '芝加哥', correct: false }
+                ]
+            },
+            {
+                question: 'What state is Cleveland in?',
+                answers: [
+                    { text: 'Ohio', correct: true },
+                    { text: 'New York', correct: false },
+                    { text: 'North Carolina', correct: false },
+                    { text: 'Illinois', correct: false }
+                ],
+                translation: '克利夫兰是哪个州的城市？',
+                translatedAnswers: [
+                    { text: '俄亥俄', correct: true },
+                    { text: '纽约', correct: false },
+                    { text: '北卡罗莱纳', correct: false },
+                    { text: '伊利诺伊', correct: false }
+                ]
+            },
+            {
+                question: 'What cities are located in the Midwest United States?',
+                answers: [
+                    { text: 'Seattle, Portland, San Francisco, Los Angeles', correct: false },
+                    { text: 'Boston, New York, Philadelphia, Washington', correct: false },
+                    { text: 'Salt Lake City, Denver, Chicago, Columbus', correct: true },
+                    { text: 'Richmond, Atlanta, Orlando, Miami', correct: false }
+                ],
+                translation: '哪些城市位于美国中西部？',
+                translatedAnswers: [
+                    { text: '西雅图，波特兰，旧金山，洛杉矶', correct: false },
+                    { text: '波士顿，纽约，费城，华盛顿', correct: false },
+                    { text: '盐湖城，丹佛，芝加哥，哥伦布', correct: true },
+                    { text: '里士满，亚特兰大，奥兰多，迈阿密', correct: false }
+                ]
+            },
+            {
+                question: 'What does Research Triangle refer to?',
+                answers: [
+                    { text: 'Raleigh, Durham, Chapel Hill', correct: true },
+                    { text: 'Cleveland, Columbus, Cincinnati', correct: false },
+                    { text: 'Los Angeles, San Francisco, Seattle', correct: false },
+                    { text: 'Washington, New York, Boston', correct: false }
+                ],
+                translation: '研究三角园区指代的是？',
+                translatedAnswers: [
+                    { text: '罗利，达勒姆，教堂山', correct: true },
+                    { text: '克利夫兰， 哥伦布，辛辛那提', correct: false },
+                    { text: '洛杉矶，旧金山，西雅图', correct: false },
+                    { text: '华盛顿，纽约，波士顿', correct: false }
+                ]
+            },
+            {
+                question: 'What company is headquartered in San Francisco Bay Area?',
+                answers: [
+                    { text: 'Amazon', correct: false },
+                    { text: 'Microsoft', correct: false },
+                    { text: 'Apple', correct: true },
+                    { text: 'Boeing', correct: false }
+                ],
+                translation: '哪个公司总部在旧金山湾区？',
+                translatedAnswers: [
+                    { text: '亚马逊', correct: false },
+                    { text: '微软', correct: false },
+                    { text: '苹果', correct: true },
+                    { text: '波音', correct: false }
+                ]
+            }
+        ];
+
+        startButton.addEventListener('click', startGame);
+        nextButton.addEventListener('click', () => {
+            currentQuestionIndex++;
+            if (currentQuestionIndex < shuffledQuestions.length) {
+                setNextQuestion();
+            } else {
+                finishButton.classList.remove('hide');
+                nextButton.classList.add('hide');
+                startOverButton.classList.remove('hide');
+            }
+        });
+        backButton.addEventListener('click', () => {
+            currentQuestionIndex--;
+            setPreviousQuestion();
+        });
+        redoButton.addEventListener('click', redoQuestion);
+        finishButton.addEventListener('click', showResults);
+        startOverButton.addEventListener('click', startOver);
+        languageToggle.addEventListener('change', toggleLanguage);
+
+        let answeredQuestions = new Set(); // Track questions that have been answered
+        
+        function startGame() {
+            startButton.classList.add('hide');
+            shuffledQuestions = questions.sort(() => Math.random() - 0.5);
+            currentQuestionIndex = 0;
+            correctAnswers = 0;
+            totalQuestions = shuffledQuestions.length;
+            questionContainer.classList.remove('hide');
+            resultContainer.style.display = 'none';
+            setNextQuestion();
+        }
+
+        function setNextQuestion() {
+            resetState();
+            document.body.style.backgroundColor = 'transparent'; // Reset color
+            showQuestion(shuffledQuestions[currentQuestionIndex]);
+            if (isChineseMode) {
+                translateInterfaceToChinese();
+            } else {
+                translateInterfaceToEnglish();
+            }
+            updateControlButtons();
+            isRedoMode = false;
+        }
+
+        function setPreviousQuestion() {
+            resetState();
+            document.body.style.backgroundColor = 'transparent'; // Reset color
+            showQuestion(shuffledQuestions[currentQuestionIndex]);
+            if (isChineseMode) {
+                translateInterfaceToChinese();
+            } else {
+                translateInterfaceToEnglish();
+            }
+            updateControlButtons();
+            isRedoMode = false;
+        }
+
+        function showQuestion(question) {
+            if (isChineseMode) {
+                questionElement.innerText = question.translation;
+                question.translatedAnswers.forEach((answer, index) => {
+                    const button = document.createElement('button');
+                    button.innerText = answer.text;
+                    button.classList.add('btn');
+                    if (question.translatedAnswers[index].correct) {
+                        button.dataset.correct = question.translatedAnswers[index].correct;
+                    }
+                    button.addEventListener('click', selectAnswer);
+                    answerButtonsElement.appendChild(button);
+                });
+            } else {
+                questionElement.innerText = question.question;
+                question.answers.forEach(answer => {
+                    const button = document.createElement('button');
+                    button.innerText = answer.text;
+                    button.classList.add('btn');
+                    if (answer.correct) {
+                        button.dataset.correct = answer.correct;
+                    }
+                    button.addEventListener('click', selectAnswer);
+                    answerButtonsElement.appendChild(button);
+                });
+            }
+        }
+
+        function resetState() {
+            clearStatusClass(document.body);
+            document.body.style.backgroundColor = 'transparent'; // Reset color
+            nextButton.classList.add('hide');
+            backButton.classList.add('hide');
+            redoButton.classList.add('hide');
+            finishButton.classList.add('hide');
+            startOverButton.classList.add('hide');
+            while (answerButtonsElement.firstChild) {
+                answerButtonsElement.removeChild(answerButtonsElement.firstChild);
+            }
+        }
+
+        function selectAnswer(e) {
+            const selectedButton = e.target;
+            const correct = selectedButton.dataset.correct === 'true';
+            setStatusClass(document.body, correct);
+            
+            // Change background color based on correctness
+            document.body.style.backgroundColor = correct ? '#4CAF50' : '#f44336'; // Green or Red
+    
+            Array.from(answerButtonsElement.children).forEach(button => {
+                setStatusClass(button, button.dataset.correct === 'true');
+                button.disabled = true; // Disable all answer buttons after selection
+            });
+            
+            // Check if the question has been answered before
+            if (!answeredQuestions.has(currentQuestionIndex)) {
+                if (correct) {
+                    correctAnswers++;
+                }
+            answeredQuestions.add(currentQuestionIndex); // Mark question as answered
+            }
+        
+            if (shuffledQuestions.length > currentQuestionIndex + 1) {
+                nextButton.classList.remove('hide');
+            } else {
+                finishButton.classList.remove('hide');
+                nextButton.classList.add('hide');
+                startOverButton.classList.remove('hide');
+            }
+            redoButton.classList.remove('hide'); // Always show redo button after an answer is selected
+        }
+
+        function setStatusClass(element, correct) {
+            clearStatusClass(element);
+            if (correct) {
+                element.classList.add('correct');
+            } else {
+                element.classList.add('wrong');
+            }
+        }
+
+        function clearStatusClass(element) {
+            element.classList.remove('correct');
+            element.classList.remove('wrong');
+        }
+
+       function toggleLanguage() {
+    isChineseMode = languageToggle.checked;
+    updateUITexts();
+    updateQuestionAndAnswers();
+}
+
+function updateUITexts() {
+    gameTitleElement.innerText = isChineseMode ? '问答游戏' : 'Trivia Game';
+    startButton.innerText = isChineseMode ? '开始' : 'Start';
+    backButton.innerText = isChineseMode ? '返回' : 'Back';
+    nextButton.innerText = isChineseMode ? '下一个' : 'Next';
+    redoButton.innerText = isChineseMode ? '重做' : 'Do it again';
+    finishButton.innerText = isChineseMode ? '完成' : 'Finish';
+    startOverButton.innerText = isChineseMode ? '重新开始' : 'Start Over';
+    resultMessage.innerText = isChineseMode ? '完成！' : 'Finished!';
+    
+    const accuracy = ((correctAnswers / totalQuestions) * 100).toFixed(2);
+    accuracyRate.innerText = isChineseMode 
+        ? `正确率: ${correctAnswers}/${totalQuestions} (${accuracy}%)` 
+        : `Accuracy Rate: ${correctAnswers}/${totalQuestions} (${accuracy}%)`;
+}
+
+        function updateQuestionAndAnswers() {
+            const currentQuestion = shuffledQuestions[currentQuestionIndex];
+    questionElement.innerText = isChineseMode ? currentQuestion.translation : currentQuestion.question;
+    
+            const answers = isChineseMode ? currentQuestion.translatedAnswers : currentQuestion.answers;
+    
+    answerButtonsElement.innerHTML = ''; // Clear existing buttons
+    answers.forEach(answer => {
+            const button = document.createElement('button');
+        button.innerText = answer.text;
+        button.classList.add('btn');
+            if (answer.correct) {
+            button.dataset.correct = answer.correct;
+        }
+        button.addEventListener('click', selectAnswer);
+        answerButtonsElement.appendChild(button);
+    });
+}
+
+        function translateInterfaceToChinese() {
+            questionElement.innerText = shuffledQuestions[currentQuestionIndex].translation;
+            if (backButton.style.display !== 'none') {
+                backButton.innerText = '上一个';
+            }
+            if (nextButton.style.display !== 'none') {
+                nextButton.innerText = '下一个';
+            }
+            if (redoButton.style.display !== 'none') {
+                redoButton.innerText = '再做一次';
+            }
+            if (finishButton.style.display !== 'none') {
+                finishButton.innerText = '完成';
+            }
+            if (startOverButton.style.display !== 'none') {
+                startOverButton.innerText = '重新开始';
+            }
+            translateAnswerButtonsToChinese();
+        }
+
+        function translateInterfaceToEnglish() {
+            questionElement.innerText = shuffledQuestions[currentQuestionIndex].question;
+            if (backButton.style.display !== 'none') {
+                backButton.innerText = 'Back';
+            }
+            if (nextButton.style.display !== 'none') {
+                nextButton.innerText = 'Next';
+            }
+            if (redoButton.style.display !== 'none') {
+                redoButton.innerText = 'Do it again';
+            }
+            if (finishButton.style.display !== 'none') {
+                finishButton.innerText = 'Finish';
+            }
+            if (startOverButton.style.display !== 'none') {
+                startOverButton.innerText = 'Start Over';
+            }
+            translateAnswerButtonsToEnglish();
+        }
+
+        function translateAnswerButtonsToChinese() {
+            const currentQuestion = shuffledQuestions[currentQuestionIndex];
+            answerButtonsElement.innerHTML = ''; // Clear existing buttons
+            currentQuestion.translatedAnswers.forEach(answer => {
+                const button = document.createElement('button');
+                button.innerText = answer.text;
+                button.classList.add('btn');
+                if (answer.correct) {
+                    button.dataset.correct = answer.correct;
+                }
+                button.addEventListener('click', selectAnswer);
+                answerButtonsElement.appendChild(button);
+            });
+        }
+
+        function translateAnswerButtonsToEnglish() {
+            const currentQuestion = shuffledQuestions[currentQuestionIndex];
+            answerButtonsElement.innerHTML = ''; // Clear existing buttons
+            currentQuestion.answers.forEach(answer => {
+                const button = document.createElement('button');
+                button.innerText = answer.text;
+                button.classList.add('btn');
+                if (answer.correct) {
+                    button.dataset.correct = answer.correct;
+                }
+                button.addEventListener('click', selectAnswer);
+                answerButtonsElement.appendChild(button);
+            });
+        }
+
+        function redoQuestion() {
+            isRedoMode = true;
+            resetState();
+            showQuestion(shuffledQuestions[currentQuestionIndex]);
+            updateControlButtons();
+        }
+
+        function startOver() {
+            startGame();
+        }
+
+        function updateControlButtons() {
+            if (shuffledQuestions.length > currentQuestionIndex + 1) {
+                nextButton.classList.remove('hide');
+            }
+            if (currentQuestionIndex > 0) {
+                backButton.classList.remove('hide');
+            }
+            redoButton.classList.remove('hide');
+        }
+
+        function showResults() {
+            questionContainer.classList.add('hide');
+            nextButton.classList.add('hide');
+            backButton.classList.add('hide'); // Hide the Back button
+            redoButton.classList.add('hide');
+            finishButton.classList.add('hide');
+            startOverButton.classList.remove('hide');
+            resultContainer.style.display = 'block';
+            
+            // Calculate accuracy
+            const accuracy = ((correctAnswers / totalQuestions) * 100).toFixed(2);
+
+            // Set result message based on language mode
+            if (isChineseMode) {
+              resultMessage.innerText = '完成！';
+              accuracyRate.innerText = `正确率: ${correctAnswers}/${totalQuestions} (${accuracy}%)`;
+            } else {
+               resultMessage.innerText = 'Finished!';
+               accuracyRate.innerText = `Accuracy Rate: ${correctAnswers}/${totalQuestions} (${accuracy}%)`;
+            }
+    
+            // Set background color to transparent or remove it
+            document.body.style.backgroundColor = 'transparent'; // or remove this line to have no specific background color
+          }
+    </script>
+</body>
+</html>
